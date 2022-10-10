@@ -1,16 +1,19 @@
 """tests for first-use authenticator"""
+import pytest_auth
 
+from firstuseauthenticator import FirstUseAuthenticator
 from unittest import mock
 
 import dbm
 import pytest
 
-from firstuseauthenticator import FirstUseAuthenticator
+pytest_plugins = ["pytest_auth"]
 
 
 @pytest.fixture
 def tmpcwd(tmpdir):
     tmpdir.chdir()
+
 
 # use pytest-asyncio
 pytestmark = pytest.mark.asyncio
@@ -34,8 +37,10 @@ async def test_basic(tmpcwd):
     )
     assert username is None
 
+
 async def test_min_pass_length(caplog, tmpcwd):
     users = []
+
     def user_exists(username):
         return username in users
 
@@ -72,8 +77,8 @@ async def test_min_pass_length(caplog, tmpcwd):
         for record in caplog.records:
             if record.levelname == 'ERROR':
                 assert record.msg == (
-                    'Password too short! Please choose a password at least %d characters long.'
-                    % auth.min_password_length
+                        'Password too short! Please choose a password at least %d characters long.'
+                        % auth.min_password_length
                 )
 
 
@@ -139,14 +144,14 @@ async def test_normalized_check(caplog, tmpcwd):
     # now verify logins
     m = mock.Mock()
     for username, password in (
-        ("onlynormalized", "onlynormalized"),
-        ("onlyNormalized", "onlynormalized"),
-        ("onlynotnormalized", "onlyNotNormalized"),
-        ("onlyNotNormalized", "onlyNotNormalized"),
-        ("collisionnormalized", "collisionnormalized"),
-        ("collisionNormalized", "collisionnormalized"),
-        ("collisionnotnormalized", "collisionNotNormalized"),
-        ("collisionNotNormalized", "collisionNotNormalized"),
+            ("onlynormalized", "onlynormalized"),
+            ("onlyNormalized", "onlynormalized"),
+            ("onlynotnormalized", "onlyNotNormalized"),
+            ("onlyNotNormalized", "onlyNotNormalized"),
+            ("collisionnormalized", "collisionnormalized"),
+            ("collisionNormalized", "collisionnormalized"),
+            ("collisionnotnormalized", "collisionNotNormalized"),
+            ("collisionNotNormalized", "collisionNotNormalized"),
     ):
         # normalized form, doesn't reset password
         authenticated = await auth2.authenticate(
@@ -192,3 +197,29 @@ async def test_normalized_check(caplog, tmpcwd):
 
     # load again, should skip the
     auth3 = FirstUseAuthenticator()
+
+
+async def test_password_length(test_firstauthenticator, caplog):
+
+    auth = test_firstauthenticator
+    users = []
+    def user_exists(username):
+        return username in users
+
+    # assert that new users' passwords must have the specified length
+    name = "newuser"
+    password = "too_short"
+
+    with mock.patch.object(auth, '_user_exists', user_exists):
+        username = await auth.authenticate(mock.Mock(), {"username": name, "password": password})
+        assert username is None
+
+        # assert that new users' passwords must have the specified length
+        for record in caplog.records:
+            if record.levelname == 'ERROR':
+                assert record.msg == (
+                        'Password too short! Please choose a password at least %d characters long.'
+                        % auth.min_password_length
+                )
+
+    assert auth.min_password_length != len(password)
