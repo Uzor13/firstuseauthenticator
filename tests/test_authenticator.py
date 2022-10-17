@@ -1,5 +1,4 @@
 """tests for first-use authenticator"""
-import pytest_auth
 
 from firstuseauthenticator import FirstUseAuthenticator
 from unittest import mock
